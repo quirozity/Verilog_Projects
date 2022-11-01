@@ -1,0 +1,89 @@
+//Modified by Quirozity
+reg [3:0] secondsCounter;
+reg [31:0] clockCount1;
+reg [3:0] Q;
+reg led;
+
+/////////// 4 bit/LED counter ///////////////
+localparam SECOND_DIVIDER = 16000000; // - suit the BX clock
+ 
+always @ (posedge clk)
+begin
+    if(secondsCounter == 4'b1111 || rst == 0) // resets after 15 iterations
+        secondsCounter <= 1'b0;
+        
+    clockCount1 = clockCount1 + 1'b1; // inc to slow down motor
+    if(clockCount1 == SECOND_DIVIDER)
+        begin
+            clockCount1 <= 1'b0;
+            secondsCounter <= secondsCounter + 1'b1; // inc to 15, the increase delay time per stage
+        end
+end
+ 
+
+/////////// Stepper Motor - half step method (using 28BYJ-48) ///////////////
+ 
+parameter STEPPER_DIVIDER = 16000; // every 1ms, minimum dewel time between changes - suits the 28BYJ -48
+ 
+
+reg [31:0] clockCount3;
+reg [4:0] step; // 16 positions for half steps
+ 
+always @ (posedge clk)
+begin
+    if(clockCount3 >= STEPPER_DIVIDER * (secondsCounter + 1)) //inc the delay between output update by the Case
+        begin
+            step <= step + 1'b1;
+            clockCount3 <= 1'b0;
+        end
+    else
+        clockCount3 <= clockCount3 + 1'b1;
+end
+ 
+always @ (step) // use blocking
+begin
+    led = step[0]; // used to sample sequnce updating Hz
+    if (dir) begin // ***
+            case(step) // move motor clockwise, by passing these sequence's when step changes [0 . . 15]
+                0: Q = 4'b1000;
+                1: Q = 4'b1100;
+                2: Q = 4'b0100;
+                3: Q = 4'b0110;
+                4: Q = 4'b0010;
+                5: Q = 4'b0011;
+                6: Q = 4'b0001;
+                7: Q = 4'b1001;
+                8: Q = 4'b1000;
+                9: Q = 4'b1100;
+                10: Q = 4'b0100;
+                11: Q = 4'b0110;                    
+                12: Q = 4'b0010;
+                13: Q = 4'b0011;
+                14: Q = 4'b0001;
+                15: Q = 4'b1001;
+            endcase
+        end
+    else // ***
+        begin // Add another case statement, so that the stepper rotates in the other direction
+            case (step)
+                0: Q = 4'b1001;
+                1: Q = 4'b0001;
+                2: Q = 4'b0011;
+                3: Q = 4'b0010;
+                4: Q = 4'b0110;
+                5: Q = 4'b0100;
+                6: Q = 4'b1100;
+                7: Q = 4'b1000;
+                8: Q = 4'b1001;
+                9: Q = 4'b0001;
+                10: Q = 4'b0011;
+                11: Q = 4'b0010;                    
+                12: Q = 4'b0110;
+                13: Q = 4'b0100;
+                14: Q = 4'b1101;
+                15: Q = 4'b1000;
+            endcase
+        end // ***
+        
+end
+
